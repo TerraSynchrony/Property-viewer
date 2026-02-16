@@ -89,7 +89,7 @@ def sanitize_geojson(geojson: Dict[str, Any]) -> Dict[str, Any]:
                 # Sanitize properties
                 if "properties" in sanitized_feature and isinstance(sanitized_feature["properties"], dict):
                     sanitized_feature["properties"] = {
-                        k: sanitize_value(v) 
+                        k: sanitize_value(v)
                         for k, v in sanitized_feature["properties"].items()
                     }
                 # Sanitize geometry coordinates
