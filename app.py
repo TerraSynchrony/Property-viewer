@@ -306,7 +306,8 @@ def main() -> None:
 
     # Build WHERE clause
     county_escaped = county_name.replace("'", "''")
-  where_parts = [f"COUNTY_NAME = '{county_escaped}'"]    if owner_search:
+    where_parts = [f"COUNTY_NAME = '{county_escaped}'"]
+    if owner_search:
         s = owner_search.replace("'", "''").upper()
         where_parts.append(f"UPPER(PRIMARY_OWNER) LIKE '%{s}%'")
     if addr_search:
