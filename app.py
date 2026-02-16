@@ -17,6 +17,7 @@ Run:
 
 from __future__ import annotations
 
+import copy
 import math
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -76,14 +77,15 @@ def sanitize_geojson(geojson: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(geojson, dict):
         return geojson
     
-    sanitized = geojson.copy()
+    # Use deep copy to avoid mutating the original object
+    sanitized = copy.deepcopy(geojson)
     
     # Sanitize features if present
     if "features" in sanitized and isinstance(sanitized["features"], list):
         sanitized_features = []
         for feature in sanitized["features"]:
             if isinstance(feature, dict):
-                sanitized_feature = feature.copy()
+                sanitized_feature = feature
                 # Sanitize properties
                 if "properties" in sanitized_feature and isinstance(sanitized_feature["properties"], dict):
                     sanitized_feature["properties"] = {
