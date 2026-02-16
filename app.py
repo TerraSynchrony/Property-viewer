@@ -207,10 +207,8 @@ def add_points_layer(
     folium.GeoJson(
         geojson,
         name=layer_name,
-        marker=folium.Marker(),
-        tooltip=folium.GeoJsonTooltip(fields=[]),
-        popup=folium.GeoJsonPopup(fields=[]),
         point_to_layer=_point_to_layer,
+        show=True,
     ).add_to(m)
 
 
@@ -298,11 +296,17 @@ def main() -> None:
     zoom = 12
 
     col_map, col_results = st.columns([2, 1], gap="large")
+    # Render the initial map to get map_state (for bounds/zoom)
     with col_map:
         m = make_map(center=center, zoom=zoom)
         st.write("Pan/zoom the map; features load for the current view when zoomed in enough.")
-
         map_state = st_folium(m, height=650, width=None)
+    # Use a placeholder for the map with data, to be filled after data is loaded
+    map_placeholder = col_map.empty()
+
+    # Extract current zoom and bbox from map_state
+    current_zoom = int(map_state.get("zoom", zoom)) if map_state else zoom
+    bbox = bbox_from_folium_state(map_state)
 
     # Build WHERE clause
     county_escaped = county_name.replace("'", "''")
@@ -314,10 +318,6 @@ def main() -> None:
         s = addr_search.replace("'", "''").upper()
         where_parts.append(f"UPPER(PARCEL_ADDR) LIKE '%{s}%'")
     where = " AND ".join(where_parts)
-
-    # Decide whether to fetch based on zoom
-    current_zoom = int(map_state.get("zoom", zoom)) if map_state else zoom
-    bbox = bbox_from_folium_state(map_state)
 
     with col_results:
         st.subheader("Loaded")
@@ -361,15 +361,17 @@ def main() -> None:
             st.info("No features found for current view + filters.")
             st.stop()
 
-        # Render second map with data (avoid re-render loop by keeping it simple)
+        # Render map with data only after features are loaded
+        m2 = make_map(center=center, zoom=current_zoom)
+        add_points_layer(
+            m=m2,
+            geojson=geojson,
+            popup_fields=popup_fields,
+            layer_name=("Parcel points" if mode == "Centroid points (public)" else "Parcels"),
+        )
+        # Show the map with data in the placeholder (replace the initial map)
+        map_placeholder.empty()
         with col_map:
-            m2 = make_map(center=center, zoom=current_zoom)
-            add_points_layer(
-                m=m2,
-                geojson=geojson,
-                popup_fields=popup_fields,
-                layer_name=("Parcel points" if mode == "Centroid points (public)" else "Parcels"),
-            )
             st_folium(m2, height=650, width=None, key="data_map")
 
         # Simple “table” preview
