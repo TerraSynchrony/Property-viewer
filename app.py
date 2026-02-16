@@ -90,6 +90,9 @@ def sanitize_geojson(geojson: Dict[str, Any]) -> Dict[str, Any]:
                         k: sanitize_value(v) 
                         for k, v in sanitized_feature["properties"].items()
                     }
+                # Sanitize geometry coordinates
+                if "geometry" in sanitized_feature and isinstance(sanitized_feature["geometry"], dict):
+                    sanitized_feature["geometry"] = sanitize_value(sanitized_feature["geometry"])
                 sanitized_features.append(sanitized_feature)
             else:
                 sanitized_features.append(feature)
