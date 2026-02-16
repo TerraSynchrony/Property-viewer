@@ -46,7 +46,7 @@ def sanitize_value(value: Any) -> Any:
         # Check for NaN or Infinity
         if math.isnan(value) or math.isinf(value):
             return None
-        # Convert to native Python types (in case of numpy types)
+        # Normalize to built-in numeric types for JSON serialization
         return float(value) if isinstance(value, float) else int(value)
     
     # Handle strings
