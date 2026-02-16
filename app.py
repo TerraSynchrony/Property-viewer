@@ -17,6 +17,7 @@ Run:
 
 from __future__ import annotations
 
+import copy
 import math
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
@@ -26,6 +27,80 @@ import streamlit as st
 from streamlit_folium import st_folium
 
 import folium
+
+
+def sanitize_value(value: Any) -> Any:
+    """
+    Sanitize a value to ensure it's JSON serializable.
+    Converts NaN, Infinity to None, and handles other non-serializable types.
+    """
+    if value is None:
+        return None
+    
+    # Handle booleans first (before int check, since bool is subclass of int)
+    if isinstance(value, bool):
+        return value
+    
+    # Handle numeric types that might not be JSON serializable
+    if isinstance(value, (int, float)):
+        # Check for NaN or Infinity
+        if math.isnan(value) or math.isinf(value):
+            return None
+        # Normalize to built-in numeric types for JSON serialization
+        return float(value) if isinstance(value, float) else int(value)
+    
+    # Handle strings
+    if isinstance(value, str):
+        return value
+    
+    # Handle lists
+    if isinstance(value, list):
+        return [sanitize_value(item) for item in value]
+    
+    # Handle dicts
+    if isinstance(value, dict):
+        return {k: sanitize_value(v) for k, v in value.items()}
+    
+    # For any other type, try to convert to string or return None
+    try:
+        # Try to convert to a basic type
+        return str(value)
+    except Exception:
+        return None
+
+
+def sanitize_geojson(geojson: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Sanitize GeoJSON to ensure all property values are JSON serializable.
+    This prevents errors when folium tries to render the map.
+    """
+    if not isinstance(geojson, dict):
+        return geojson
+    
+    # Use deep copy to avoid mutating the original object
+    sanitized = copy.deepcopy(geojson)
+    
+    # Sanitize features if present
+    if "features" in sanitized and isinstance(sanitized["features"], list):
+        sanitized_features = []
+        for feature in sanitized["features"]:
+            if isinstance(feature, dict):
+                sanitized_feature = feature
+                # Sanitize properties
+                if "properties" in sanitized_feature and isinstance(sanitized_feature["properties"], dict):
+                    sanitized_feature["properties"] = {
+                        k: sanitize_value(v)
+                        for k, v in sanitized_feature["properties"].items()
+                    }
+                # Sanitize geometry coordinates
+                if "geometry" in sanitized_feature and isinstance(sanitized_feature["geometry"], dict):
+                    sanitized_feature["geometry"] = sanitize_value(sanitized_feature["geometry"])
+                sanitized_features.append(sanitized_feature)
+            else:
+                sanitized_features.append(feature)
+        sanitized["features"] = sanitized_features
+    
+    return sanitized
 
 
 DEFAULT_POINTS_LAYER_URL = (
@@ -185,6 +260,9 @@ def add_points_layer(
     """
     Render points as CircleMarkers via GeoJson + point_to_layer.
     """
+    # Sanitize GeoJSON to ensure all values are JSON serializable
+    sanitized_geojson = sanitize_geojson(geojson)
+    
     def _point_to_layer(feature: Dict[str, Any], latlng: Tuple[float, float]) -> folium.CircleMarker:
         props = feature.get("properties", {}) or {}
         lines = []
@@ -205,7 +283,7 @@ def add_points_layer(
         )
 
     folium.GeoJson(
-        geojson,
+        sanitized_geojson,
         name=layer_name,
         point_to_layer=_point_to_layer,
         show=True,
